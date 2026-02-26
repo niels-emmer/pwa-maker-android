@@ -91,6 +91,21 @@
 
 ---
 
+## ADR-009: Configurable HOST_PORT via .env (default 8088)
+
+**Date**: 2026-02-26
+**Status**: Accepted
+
+**Context**: On initial deploy, both port 80 and 8080 were occupied by existing services on the target VPS (Nginx Proxy Manager on 80, plus 8080–8086 all in use). Hardcoding any port causes immediate failure on busy homelab servers.
+
+**Decision**: Use `${HOST_PORT:-8088}:80` in `docker-compose.yml`. Default is 8088 (not 80 or 8080 which are almost always taken). Users override via `HOST_PORT=<port>` in `.env`.
+
+**Consequences**: Zero-config deploy is more likely to succeed. If 8088 is taken, user can find a free port with `ss -tlnp` and set it in `.env`. No code changes needed for port changes.
+
+**Lesson learned**: On a homelab VPS running many Docker services, ports 80, 8080–8086, 8090, 8095–8097, 8180, 8190 were all in use. Default to something higher (8088+) for out-of-the-box success.
+
+---
+
 ## ADR-008: Tailwind CSS, no component library
 
 **Date**: 2026-02-26

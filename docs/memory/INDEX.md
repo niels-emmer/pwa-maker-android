@@ -17,10 +17,12 @@
 **What it is**: A web application that accepts a PWA URL + configuration options and produces a downloadable Android APK (Trusted Web Activity wrapper) via a server-side build pipeline.
 
 **Repo**: `/Users/nemmer/repositories/pwa-maker-android`
+**GitHub**: https://github.com/niels-emmer/pwa-maker-android
+**Live**: https://pwa.macjuu.com
 
 **Stack**: React + Vite frontend · Express + TypeScript backend · `@bubblewrap/core` + Android SDK for APK generation
 
-**Deployment**: Docker Compose on a VPS, behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager, Caddy, Traefik)
+**Deployment**: Docker Compose on a VPS, behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager, Caddy, Traefik). Host port configured via `HOST_PORT` in `.env` (default 8088 — ports 80 and 8080–8086 are occupied on this server).
 
 ## Session checklist
 
@@ -41,5 +43,6 @@
 | backend | ✅ Complete |
 | frontend | ✅ Complete |
 | docker | ✅ Complete |
-| tests | ✅ Passing |
+| tests | ✅ Passing (46 backend + 37 frontend) |
 | README / SECURITY | ✅ Complete |
+| **Production deploy** | ✅ Live at https://pwa.macjuu.com |

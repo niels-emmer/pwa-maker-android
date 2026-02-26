@@ -8,7 +8,7 @@ Browser
   │  HTTPS (handled by external SSL proxy)
   ▼
 ┌─────────────────────────────────┐
-│  frontend  (Nginx, port 80)     │  Static React SPA
+│  frontend  (Nginx, HOST_PORT)   │  Static React SPA
 │  /api/* → backend:3001          │  Nginx reverse proxy for API
 └─────────────────────────────────┘
   │
@@ -109,6 +109,7 @@ frontend/src/
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `HOST_PORT` | `8088` | Host port the frontend nginx binds to (configure in `.env`) |
 | `PORT` | `3001` | Backend listen port |
 | `ANDROID_HOME` | `/opt/android-sdk` | Android SDK root |
 | `JAVA_HOME` | `/usr/lib/jvm/java-17-openjdk-amd64` | JDK path |
@@ -121,7 +122,16 @@ frontend/src/
 
 ## Ports (internal Docker network)
 
-| Service | Internal port | Exposed |
+| Service | Internal port | Host exposure |
 |---|---|---|
-| frontend | 80 | 80 (or via proxy) |
-| backend | 3001 | not exposed directly |
+| frontend | 80 (Nginx) | `HOST_PORT` (default 8088) — set in `.env` |
+| backend | 3001 | not exposed directly — only via Nginx proxy |
+
+## Live deployment
+
+| | |
+|---|---|
+| **URL** | https://pwa.macjuu.com |
+| **Host** | VPS running many other Docker services on ports 80–9494 |
+| **Reverse proxy** | SSL-terminating proxy in front of `HOST_PORT=8088` |
+| **First deployed** | 2026-02-26 |

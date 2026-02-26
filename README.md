@@ -7,6 +7,8 @@
 
 > Turn any Progressive Web App into a signed Android APK you can sideload directly onto any Android device. No Android Studio, no Play Store, no fuss.
 
+**Live demo: [pwa.macjuu.com](https://pwa.macjuu.com)**
+
 ![Desktop form](docs/screenshots/desktop-form.png)
 
 ---
@@ -79,16 +81,15 @@ docker-compose up -d --build
 
 ### 4. Point your reverse proxy at the app port
 
-The frontend container binds to `HOST_PORT` on the host (default **8080**).
-If port 80 is free you can set `HOST_PORT=80` in `.env`; otherwise leave the default
-and point your reverse proxy at the container:
+The frontend container binds to `HOST_PORT` on the host (default **8088**).
+If a different port is free, set `HOST_PORT=<port>` in `.env` before starting.
 
 ```
 # .env
-HOST_PORT=8080        # change to 80 if nothing else is on port 80
+HOST_PORT=8088        # change to any free port on your host
 ```
 
-Example Nginx Proxy Manager / Caddy upstream target: `http://<vps-ip>:8080`
+Example Nginx Proxy Manager / Caddy upstream target: `http://<vps-ip>:8088`
 
 ### 5. Open the app
 
@@ -113,7 +114,7 @@ All configuration is via environment variables in `.env`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOST_PORT` | `8080` | Host port the frontend is exposed on |
+| `HOST_PORT` | `8088` | Host port the frontend is exposed on |
 | `NODE_ENV` | `production` | Node environment |
 | `PORT` | `3001` | Backend listen port (internal) |
 | `ANDROID_HOME` | `/opt/android-sdk` | Android SDK path (set in Docker) |

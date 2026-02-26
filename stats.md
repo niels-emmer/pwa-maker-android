@@ -8,6 +8,7 @@
 |---|---|---|---|---|---|
 | 1 | 2026-02-26 | 6 | 8 | +4 459 | Initial build — empty repo to full working app |
 | 2 | 2026-02-26 | 1 | 2 | +5 | Fix `ConsoleLog` / `Parameters<>` Docker backend errors; update builder test mock |
+| 3 | 2026-02-26 | 4 | 2 | +76 | Port conflict resolution; first successful production deploy at pwa.macjuu.com |
 
 ---
 
@@ -15,13 +16,14 @@
 
 | Metric | Value |
 |---|---|
-| **Total prompts** | 7 |
-| **Total debug sessions** | 10 |
-| **Total lines of code** | 4 464 |
+| **Total prompts** | 11 |
+| **Total debug sessions** | 12 |
+| **Total lines of code** | 4 540 |
 | **Tracked files** | 57 |
 | **Tests** | 83 (46 backend + 37 frontend) |
-| **Commits** | 5 |
-| **Session wall-clock time** | ~20 min cumulative |
+| **Commits** | 8 |
+| **Session wall-clock time** | ~35 min cumulative |
+| **Production URL** | https://pwa.macjuu.com |
 
 ---
 
@@ -39,6 +41,8 @@
 | 8 | `git push` rejected | GitHub remote had a new commit (user edited README) before local push | `git pull --rebase` then push |
 | 9 | Docker backend build: `Property 'Log' does not exist` | `@bubblewrap/core` 1.24.1 exports `ConsoleLog`, not `Log` | Changed import + instantiation to `ConsoleLog` in `builder.ts` |
 | 10 | Docker backend build: `Parameters<typeof TwaManifest>` type error | TwaManifest constructor is overloaded, not assignable to `(...args: any) => any` | Cast manifest data `as any`; updated test mock to export `ConsoleLog` |
+| 11 | `docker-compose up` failed: port 80 in use | VPS already had a service on port 80 | Changed compose port to `${HOST_PORT:-8088}:80`; document in `.env.example` |
+| 12 | Port 8088 default also initially chosen as 8080 — also in use | VPS had ports 8080–8086 all occupied by other Docker services | Scanned with `ss -tlnp`; picked 8088 as first free port in that range |
 
 ---
 
