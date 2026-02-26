@@ -1,6 +1,7 @@
 > [!CAUTION]
 > This entire project was built by Claude Code (Sonnet 4.6). Started from an empty folder and a single prompt and some clarifications to a working app with the only human-written content in this opening paragraph. I asked it to respect, and give credit to anyone's code ripped off the web, but this here app is a mere 'state of agnentic-code' experiment, and functionality I needed myself. I am NOT a dev (by profession), Claude is book-smart but **cannot think**. Keep that in mind firing up any of the below.
 >
+> [Journey log here](stats.md)
 
 # PWA Maker — Android APK Generator
 
