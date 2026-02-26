@@ -106,8 +106,9 @@ async function generateAndroidProject(
     iconUrl: options.iconUrl || null,
     maskableIconUrl: options.maskableIconUrl ?? null,
     monochromeIconUrl: null,
-    appVersionName: '1.0.0',
+    appVersion: '1.0.0',       // TwaManifest reads data.appVersion (not appVersionName)
     appVersionCode: 1,
+    splashScreenFadeOutDuration: 300,
     shortcuts: [],
     generatorApp: 'pwa-maker-android',
     webManifestUrl: null,
