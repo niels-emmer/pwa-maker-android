@@ -82,7 +82,7 @@ async function generateAndroidProject(
   buildDir: string
 ): Promise<void> {
   // Dynamically import @bubblewrap/core (ESM compatible)
-  const { TwaManifest, TwaGenerator, Log } = await import('@bubblewrap/core');
+  const { TwaManifest, TwaGenerator, ConsoleLog } = await import('@bubblewrap/core');
 
   const host = new URL(options.pwaUrl).hostname;
   const startPath = new URL(options.pwaUrl).pathname || '/';
@@ -128,9 +128,10 @@ async function generateAndroidProject(
     isMonochrome: false,
   };
 
-  const twaManifest = new TwaManifest(twaManifestData as Parameters<typeof TwaManifest>[0]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const twaManifest = new TwaManifest(twaManifestData as any);
   const generator = new TwaGenerator();
-  const log = new Log();
+  const log = new ConsoleLog();
 
   await generator.createTwaProject(buildDir, twaManifest, log);
 }

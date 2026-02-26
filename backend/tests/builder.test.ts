@@ -19,7 +19,7 @@ vi.mock('@bubblewrap/core', () => ({
   TwaGenerator: vi.fn().mockImplementation(() => ({
     createTwaProject: vi.fn().mockResolvedValue(undefined),
   })),
-  Log: vi.fn().mockImplementation(() => ({
+  ConsoleLog: vi.fn().mockImplementation(() => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
