@@ -40,8 +40,8 @@ These rules are permanent. They represent security-by-design decisions that must
 - Android SDK directory is read-only for `appuser`
 - `/tmp/pwa-maker-*` is the only write path for build artefacts
 - Both containers use `security_opt: [no-new-privileges:true]` and `cap_drop: [ALL]`
-- Frontend uses `nginxinc/nginx-unprivileged` (port 8080 inside container) — requires **no capabilities** at all
-- Standard `nginx` image is **not** used for the frontend; it needs `CAP_CHOWN` at startup which conflicts with `cap_drop: ALL`
+- Frontend uses `nginx:1.27-alpine` with `USER nginx` in the Dockerfile — cache dirs and PID file are pre-owned by nginx (UID 101) at build time so no `CAP_CHOWN` is needed at runtime
+- Nginx listens on port **8080** inside the container (not 80) — binding < 1024 requires `CAP_NET_BIND_SERVICE` which conflicts with `cap_drop: ALL`
 
 ### Rate limiting
 - Hard limits enforced at Express middleware level (not just documentation):
