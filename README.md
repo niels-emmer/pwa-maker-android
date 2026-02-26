@@ -37,7 +37,7 @@ Built with the same stack as a typical vibecoded PWA (React + Vite frontend, Exp
 
 - Paste any HTTPS PWA URL → manifest fields auto-filled
 - Configurable: app name, short name, package ID, theme/background colour, display mode, orientation, icon
-- Server-side APK build via [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) + Android SDK 34
+- Server-side APK build via [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) + Android SDK 36
 - Live build log streamed via SSE while you wait
 - Download a signed APK directly in browser
 - Dark theme, mobile-first UI
@@ -74,7 +74,7 @@ cp .env.example .env
 ### 3. Build and start
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 > **First build takes 15–30 minutes** — the backend image installs JDK 17 + Android SDK (~1.5 GB). Subsequent builds use Docker layer cache and are fast.
@@ -134,7 +134,7 @@ pwa-maker-android/
 ├── frontend/          React + Vite SPA → served by Nginx
 │   └── nginx.conf     Nginx config: serves SPA + proxies /api/* to backend
 ├── backend/           Express + TypeScript + Android build toolchain
-│   └── Dockerfile     Node 20 + JDK 17 + Android SDK 34 (~1.5 GB image)
+│   └── Dockerfile     Node 20 + JDK 17 + Android SDK 36 (~1.5 GB image)
 └── docker-compose.yml
 ```
 
@@ -142,7 +142,7 @@ The `gradle_cache` named volume persists between container restarts so Gradle de
 
 To clear the Gradle cache:
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ---
@@ -202,12 +202,22 @@ See [SECURITY.md](SECURITY.md) for the full security design, reporting policy, a
 |---|---|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS |
 | Backend | Node 20, Express, TypeScript |
-| APK generation | [@bubblewrap/core](https://github.com/GoogleChromeLabs/bubblewrap), Android SDK 34, JDK 17 |
+| APK generation | [@bubblewrap/core](https://github.com/GoogleChromeLabs/bubblewrap), Android SDK 36, JDK 17 |
 | Build tooling | Gradle (Android) |
 | Signing | `apksigner` (Android build tools) |
 | Progress delivery | Server-Sent Events (SSE) |
 | Tests | Vitest, React Testing Library |
 | Container | Docker, Nginx |
+
+---
+
+## Credits
+
+### [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) by Google Chrome Labs
+
+The APK generation pipeline depends on `@bubblewrap/core` as an npm library. A single call to `TwaGenerator.createTwaProject()` generates the Android project structure, `build.gradle`, and `gradlew` inside a temp directory. None of the bubblewrap source code is copied into this repository — it is used strictly as a published npm package.
+
+Everything else in this project (Express server, manifest fetching, SSRF protection, rate limiting, SSE progress streaming, signing pipeline, React frontend, Docker setup) is original code.
 
 ---
 
