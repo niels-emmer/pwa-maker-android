@@ -10,6 +10,7 @@
 | [INVARIABLES.md](./INVARIABLES.md) | Constants that must never change |
 | [DECISIONS.md](./DECISIONS.md) | Architecture Decision Records (ADRs) |
 | [BUILD_MODEL.md](./BUILD_MODEL.md) | The exact product being built, parameters, user options |
+| [../../stats.md](../../stats.md) | Session statistics — prompts, debug sessions, LOC, time |
 
 ## Project at a glance
 
@@ -28,8 +29,9 @@
 - [ ] Check DECISIONS.md before making architectural choices
 - [ ] After UI changes: regenerate screenshots (`docs/screenshots/`) and update README.md
 - [ ] After schema/API changes: update BUILD_MODEL.md
+- [ ] After every session: update `stats.md` (prompts, debug sessions, LOC delta)
 - [ ] All new functions need a passing test before marking the task complete
-- [ ] Run `yarn test` in both `backend/` and `frontend/` before committing
+- [ ] Run `npm test` in both `backend/` and `frontend/` before committing
 
 ## Current status
 
