@@ -7,7 +7,7 @@ import type { BuildOptions } from '../types.js';
 
 const ANDROID_HOME = process.env.ANDROID_HOME ?? '/opt/android-sdk';
 const JAVA_HOME = process.env.JAVA_HOME ?? '/usr/lib/jvm/java-17-openjdk-amd64';
-const APKSIGNER = join(ANDROID_HOME, 'build-tools', '34.0.0', 'apksigner');
+const APKSIGNER = join(ANDROID_HOME, 'build-tools', '35.0.0', 'apksigner');
 const KEYTOOL = join(JAVA_HOME, 'bin', 'keytool');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -269,7 +269,7 @@ function buildEnv(): NodeJS.ProcessEnv {
       join(JAVA_HOME, 'bin'),
       join(ANDROID_HOME, 'cmdline-tools', 'latest', 'bin'),
       join(ANDROID_HOME, 'platform-tools'),
-      join(ANDROID_HOME, 'build-tools', '34.0.0'),
+      join(ANDROID_HOME, 'build-tools', '35.0.0'),
       process.env.PATH,
     ]
       .filter(Boolean)

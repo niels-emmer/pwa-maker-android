@@ -51,7 +51,8 @@ These rules are permanent. They represent security-by-design decisions that must
 
 ## Build invariables
 
-- Target Android SDK: **API 34** (never lower without updating minSdkVersion)
+- compileSdkVersion: **36**, targetSdkVersion: **35** — hardcoded in bubblewrap 1.24.1 template, must match installed SDK components
+- build-tools version: **35.0.0** — must be installed in the Docker image and referenced in `builder.ts`
 - Min SDK: **21** (Android 5.0 — reasonable floor for TWA)
 - APK type: **release, signed** (not debug)
 - TWA category: **sideload** (no Play Store metadata generated)

@@ -21,7 +21,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 # ── Android SDK ───────────────────────────────────────────────────────────────
 ENV ANDROID_HOME=/opt/android-sdk
 ENV ANDROID_SDK_ROOT=${ANDROID_HOME}
-ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/build-tools/34.0.0:${PATH}"
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/build-tools/35.0.0:${PATH}"
 
 # Download and install Android command-line tools
 # SHA256 verified via checksum embedded below (update when bumping version)
@@ -37,8 +37,8 @@ RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" \
 RUN yes | sdkmanager --licenses > /dev/null \
     && sdkmanager \
         "platform-tools" \
-        "platforms;android-34" \
-        "build-tools;34.0.0"
+        "platforms;android-36" \
+        "build-tools;35.0.0"
 
 # Make SDK world-readable (will be used by non-root appuser)
 RUN chmod -R a+rX "${ANDROID_HOME}"
