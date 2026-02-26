@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { BuildOptions, ManifestDefaults, DisplayMode, OrientationMode } from '../types.js';
+import type { BuildOptions, DisplayMode, OrientationMode } from '../types.js';
 import { useManifest } from '../hooks/useManifest.js';
 
 interface Props {
