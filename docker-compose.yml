@@ -1,0 +1,49 @@
+services:
+
+  # ── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - pwa-maker
+
+  # ── Backend ───────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      # Gradle dependency cache — persists across container restarts for fast builds
+      - gradle_cache:/home/appuser/.gradle
+    networks:
+      - pwa-maker
+    # Backend is NOT exposed directly to the host; only reachable via frontend proxy
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  pwa-maker:
+    driver: bridge
+
+volumes:
+  # Gradle cache: survives container restarts; clear with: docker-compose down -v
+  gradle_cache:

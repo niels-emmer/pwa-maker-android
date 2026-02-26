@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.prod.yml — Production overlay
+#
+# Usage (with SSL reverse proxy like Nginx Proxy Manager, Caddy, or Traefik):
+#
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Or, if your SSL proxy is managed outside this stack, just use docker-compose.yml
+# and point the proxy at port 80 on the frontend container / the host.
+#
+# ── Security note ────────────────────────────────────────────────────────────
+# This app has no built-in authentication. If exposed to the internet, protect
+# it at the reverse proxy level. Options:
+#   • Basic auth in Nginx/Caddy
+#   • IP allowlist
+#   • oauth2-proxy sidecar (pattern from your other projects)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  frontend:
+    # In production, don't expose port 80 directly — let the SSL proxy handle it
+    ports: []
+    # If your SSL proxy is in the same Docker network, connect it here
+    # networks:
+    #   - proxy      # external network your reverse proxy uses
+    #   - pwa-maker
+
+  backend:
+    environment:
+      - NODE_ENV=production
+      # Override CORS_ORIGIN if needed (defaults to * behind a proxy)
+      # - CORS_ORIGIN=https://your-domain.example.com
+
+# Example: add your SSL proxy's external network so it can reach the frontend
+# networks:
+#   proxy:
+#     external: true
+#   pwa-maker:
+#     driver: bridge

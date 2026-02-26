@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Temp build artefacts (should only live in Docker /tmp)
+tmp/
+*.apk
+*.jks
+*.keystore
+
+# Docker build context ignores handled in .dockerignore
+
+# Claude Code session-specific permissions (not useful for other contributors)
+.claude/settings.local.json
