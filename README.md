@@ -77,11 +77,18 @@ docker-compose up -d --build
 
 > **First build takes 15–30 minutes** — the backend image installs JDK 17 + Android SDK (~1.5 GB). Subsequent builds use Docker layer cache and are fast.
 
-### 4. Point your reverse proxy at port 80
+### 4. Point your reverse proxy at the app port
 
-The frontend container serves on port `80`. Route your domain to it via your SSL proxy.
+The frontend container binds to `HOST_PORT` on the host (default **8080**).
+If port 80 is free you can set `HOST_PORT=80` in `.env`; otherwise leave the default
+and point your reverse proxy at the container:
 
-Example Nginx Proxy Manager / Caddy target: `http://<vps-ip>:80`
+```
+# .env
+HOST_PORT=8080        # change to 80 if nothing else is on port 80
+```
+
+Example Nginx Proxy Manager / Caddy upstream target: `http://<vps-ip>:8080`
 
 ### 5. Open the app
 
@@ -106,6 +113,7 @@ All configuration is via environment variables in `.env`:
 
 | Variable | Default | Description |
 |---|---|---|
+| `HOST_PORT` | `8080` | Host port the frontend is exposed on |
 | `NODE_ENV` | `production` | Node environment |
 | `PORT` | `3001` | Backend listen port (internal) |
 | `ANDROID_HOME` | `/opt/android-sdk` | Android SDK path (set in Docker) |
