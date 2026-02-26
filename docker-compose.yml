@@ -13,6 +13,12 @@ services:
         condition: service_healthy
     networks:
       - pwa-maker
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE   # Nginx needs to bind port 80 inside the container
 
   # ── Backend ───────────────────────────────────────────────────────────────
   backend:
@@ -33,6 +39,10 @@ services:
     # Backend is NOT exposed directly to the host; only reachable via frontend proxy
     expose:
       - "3001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s

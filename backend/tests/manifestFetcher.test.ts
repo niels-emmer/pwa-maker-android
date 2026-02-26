@@ -4,8 +4,158 @@ import {
   selectBestIcon,
   selectMaskableIcon,
   deriveOptions,
+  isPrivateHostname,
 } from '../src/services/manifestFetcher.js';
 import type { WebManifestIcon } from '../src/types.js';
+
+// ─── isPrivateHostname ────────────────────────────────────────────────────────
+
+describe('isPrivateHostname', () => {
+  it('blocks localhost', () => {
+    expect(isPrivateHostname('localhost')).toBe(true);
+  });
+
+  it('blocks 127.0.0.1', () => {
+    expect(isPrivateHostname('127.0.0.1')).toBe(true);
+  });
+
+  it('blocks 127.x.x.x range', () => {
+    expect(isPrivateHostname('127.99.99.99')).toBe(true);
+  });
+
+  it('blocks 10.x.x.x', () => {
+    expect(isPrivateHostname('10.0.0.1')).toBe(true);
+  });
+
+  it('blocks 192.168.x.x', () => {
+    expect(isPrivateHostname('192.168.1.100')).toBe(true);
+  });
+
+  it('blocks 172.16.x.x (start of range)', () => {
+    expect(isPrivateHostname('172.16.0.1')).toBe(true);
+  });
+
+  it('blocks 172.31.x.x (end of range)', () => {
+    expect(isPrivateHostname('172.31.255.255')).toBe(true);
+  });
+
+  it('does not block 172.32.x.x (outside range)', () => {
+    expect(isPrivateHostname('172.32.0.1')).toBe(false);
+  });
+
+  it('blocks 169.254.x.x (AWS/GCP metadata)', () => {
+    expect(isPrivateHostname('169.254.169.254')).toBe(true);
+  });
+
+  it('blocks 0.x.x.x', () => {
+    expect(isPrivateHostname('0.0.0.0')).toBe(true);
+  });
+
+  it('blocks IPv6 loopback ::1', () => {
+    expect(isPrivateHostname('::1')).toBe(true);
+  });
+
+  it('blocks IPv6 loopback in brackets [::1]', () => {
+    expect(isPrivateHostname('[::1]')).toBe(true);
+  });
+
+  it('blocks IPv6 fc00:: range', () => {
+    expect(isPrivateHostname('fc00::1')).toBe(true);
+  });
+
+  it('blocks IPv6 fd00:: range', () => {
+    expect(isPrivateHostname('fd12:3456:789a::1')).toBe(true);
+  });
+
+  it('blocks metadata.google.internal', () => {
+    expect(isPrivateHostname('metadata.google.internal')).toBe(true);
+  });
+
+  it('allows public IPv4', () => {
+    expect(isPrivateHostname('93.184.216.34')).toBe(false);
+  });
+
+  it('allows public domain names', () => {
+    expect(isPrivateHostname('example.com')).toBe(false);
+    expect(isPrivateHostname('pwa.macjuu.com')).toBe(false);
+  });
+});
+
+// ─── SSRF blocking in fetchManifest ──────────────────────────────────────────
+
+describe('fetchManifest SSRF blocking', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('throws on localhost URL', async () => {
+    const { fetchManifest } = await import('../src/services/manifestFetcher.js');
+    await expect(fetchManifest('https://localhost/manifest.json')).rejects.toThrow(
+      /private\/loopback/i
+    );
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it('throws on 127.0.0.1', async () => {
+    const { fetchManifest } = await import('../src/services/manifestFetcher.js');
+    await expect(fetchManifest('https://127.0.0.1/manifest.json')).rejects.toThrow(
+      /private\/loopback/i
+    );
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it('throws on 169.254.169.254 (cloud metadata)', async () => {
+    const { fetchManifest } = await import('../src/services/manifestFetcher.js');
+    await expect(fetchManifest('https://169.254.169.254/')).rejects.toThrow(
+      /private\/loopback/i
+    );
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it('throws on 192.168.x.x', async () => {
+    const { fetchManifest } = await import('../src/services/manifestFetcher.js');
+    await expect(fetchManifest('https://192.168.1.1/manifest.json')).rejects.toThrow(
+      /private\/loopback/i
+    );
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it('throws on IPv6 loopback [::1]', async () => {
+    const { fetchManifest } = await import('../src/services/manifestFetcher.js');
+    await expect(fetchManifest('https://[::1]/manifest.json')).rejects.toThrow(
+      /private\/loopback/i
+    );
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+});
+
+// ─── icon HTTPS enforcement ───────────────────────────────────────────────────
+
+describe('selectBestIcon HTTPS enforcement', () => {
+  const base = 'https://example.com';
+
+  it('skips icons that resolve to http://', () => {
+    const icons = [{ src: 'http://example.com/icon.png', sizes: '512x512' }];
+    expect(selectBestIcon(icons, base)).toBeNull();
+  });
+
+  it('returns the icon when it resolves to https://', () => {
+    const icons = [{ src: '/icon-512.png', sizes: '512x512' }];
+    expect(selectBestIcon(icons, base)).toBe('https://example.com/icon-512.png');
+  });
+
+  it('falls through to the next https icon if first is http', () => {
+    const icons = [
+      { src: 'http://cdn.example.com/big.png', sizes: '1024x1024' },
+      { src: '/icon-512.png', sizes: '512x512' },
+    ];
+    expect(selectBestIcon(icons, base)).toBe('https://example.com/icon-512.png');
+  });
+});
 
 // ─── derivePackageId ─────────────────────────────────────────────────────────
 

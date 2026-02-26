@@ -24,6 +24,8 @@ export interface BuildState {
   id: string;
   status: BuildStatus;
   options: BuildOptions;
+  /** Full path to the temp build directory (e.g. /tmp/pwa-maker-<uuid>/) — used for cleanup */
+  buildDir: string | null;
   apkPath: string | null;
   apkFileName: string | null;
   errorMessage: string | null;

@@ -181,6 +181,7 @@ async function runBuild(id: string, options: BuildOptions): Promise<void> {
     updateBuild(id, {
       status: 'complete',
       apkPath: result.apkPath,
+      buildDir: result.buildDir,
       apkFileName,
       completedAt: Date.now(),
     });

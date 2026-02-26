@@ -109,6 +109,19 @@ describe('GET /api/health', () => {
     expect(res.body.status).toBe('ok');
     expect(typeof res.body.uptime).toBe('number');
   });
+
+  it('includes Content-Security-Policy header', async () => {
+    const { default: app } = await import('../src/index.js');
+    const res = await request(app).get('/api/health');
+    expect(res.headers['content-security-policy']).toBeDefined();
+    expect(res.headers['content-security-policy']).toContain("default-src 'self'");
+  });
+
+  it('includes X-Frame-Options header set to DENY', async () => {
+    const { default: app } = await import('../src/index.js');
+    const res = await request(app).get('/api/health');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+  });
 });
 
 describe('GET /api/build/:id/stream', () => {

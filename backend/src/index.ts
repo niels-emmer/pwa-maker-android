@@ -6,6 +6,7 @@ import compression from 'compression';
 import healthRouter from './routes/health.js';
 import buildRouter from './routes/build.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { manifestRateLimiter } from './middleware/rateLimiter.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? '*';
@@ -18,7 +19,38 @@ app.set('trust proxy', 1); // Trust first Nginx proxy for rate limiting
 
 app.use(
   helmet({
+    // Allow cross-origin resource requests (needed for APK downloads)
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+
+    // Content-Security-Policy — backend serves JSON + APK files, not HTML,
+    // but CSP still protects any error pages from reflected-content attacks.
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'https:', 'data:'],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+      },
+    },
+
+    // HTTP Strict Transport Security — tell browsers to always use HTTPS
+    hsts: {
+      maxAge: 31_536_000, // 1 year
+      includeSubDomains: true,
+    },
+
+    // Prevent embedding in iframes
+    frameguard: { action: 'deny' },
+
+    // Prevent MIME sniffing
+    noSniff: true,
+
+    // Referrer policy
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 
@@ -40,8 +72,10 @@ app.use(express.json({ limit: '16kb' })); // Small limit — we only receive JSO
 app.use('/api', healthRouter);
 app.use('/api/build', buildRouter);
 
-// Also expose manifest fetch as a passthrough so the frontend can avoid CORS issues
-app.get('/api/manifest', async (req, res, next): Promise<void> => {
+// Also expose manifest fetch as a passthrough so the frontend can avoid CORS issues.
+// Rate-limited to prevent SSRF scanning. SSRF IP blocking is enforced inside
+// manifestFetcher.ts (fetchWithTimeout checks isPrivateHostname before every fetch).
+app.get('/api/manifest', manifestRateLimiter, async (req, res, next): Promise<void> => {
   const { url } = req.query;
   if (typeof url !== 'string' || !url.startsWith('https://')) {
     res.status(400).json({ error: 'url query param required and must be HTTPS' });
@@ -53,6 +87,11 @@ app.get('/api/manifest', async (req, res, next): Promise<void> => {
     const defaults = deriveOptions(manifest, url);
     res.json({ manifest, defaults });
   } catch (err) {
+    // Surface SSRF blocks as 403, not 500
+    if (err instanceof Error && (err as Error & { ssrfBlocked?: boolean }).ssrfBlocked) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

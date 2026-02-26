@@ -3,9 +3,68 @@ import type { WebManifest, WebManifestIcon, BuildOptions } from '../types.js';
 const FETCH_TIMEOUT_MS = 10_000;
 const USER_AGENT = 'PWAMakerAndroid/1.0 (+https://github.com/pwa-maker-android)';
 
+// ─── SSRF protection ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the hostname is a private/loopback/link-local address
+ * that should never be fetched from a public-facing service.
+ *
+ * Blocked IPv4: 127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.x, 0.0.0.0/8
+ * Blocked IPv6: ::1, fc00::/7 (includes fd00::/8), fe80::/10
+ * Blocked names: localhost, metadata.google.internal
+ */
+export function isPrivateHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().trim();
+
+  // Named loopback / cloud metadata hostnames
+  if (h === 'localhost' || h === 'metadata.google.internal') return true;
+
+  // Strip IPv6 brackets if present: [::1] → ::1
+  const stripped = h.startsWith('[') && h.endsWith(']') ? h.slice(1, -1) : h;
+
+  // IPv6 loopback
+  if (stripped === '::1' || stripped === '0:0:0:0:0:0:0:1') return true;
+
+  // IPv6 private ranges (fc00::/7 = fc00–fdff, fe80::/10 = fe80–febf)
+  if (/^f[cd][0-9a-f]{2}:/i.test(stripped)) return true;
+  if (/^fe[89ab][0-9a-f]:/i.test(stripped)) return true;
+
+  // IPv4: must be exactly 4 dotted octets
+  const ipv4Parts = stripped.split('.');
+  if (ipv4Parts.length === 4) {
+    const octets = ipv4Parts.map(Number);
+    if (octets.every((o) => Number.isInteger(o) && o >= 0 && o <= 255)) {
+      const [a, b] = octets as [number, number, number, number];
+      if (a === 127) return true;                       // 127.0.0.0/8 loopback
+      if (a === 10) return true;                        // 10.0.0.0/8
+      if (a === 0) return true;                         // 0.0.0.0/8
+      if (a === 169 && b === 254) return true;          // 169.254.0.0/16 link-local / AWS metadata
+      if (a === 192 && b === 168) return true;          // 192.168.0.0/16
+      if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    }
+  }
+
+  return false;
+}
+
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
 async function fetchWithTimeout(url: string): Promise<Response> {
+  // SSRF guard: block requests to private/loopback addresses
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    throw new Error('Invalid URL');
+  }
+
+  if (isPrivateHostname(hostname)) {
+    throw Object.assign(
+      new Error(`Fetching from private/loopback addresses is not allowed: ${hostname}`),
+      { ssrfBlocked: true }
+    );
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -98,7 +157,10 @@ function extractManifestUrl(html: string, pageUrl: string): string | null {
 
 // ─── Icon selection ───────────────────────────────────────────────────────────
 
-/** Return the URL of the largest non-maskable icon (≥ 512px preferred) */
+/**
+ * Return the URL of the largest non-maskable icon (≥ 512px preferred).
+ * Only returns HTTPS URLs — HTTP icons are skipped.
+ */
 export function selectBestIcon(
   icons: WebManifestIcon[],
   baseUrl: string
@@ -110,12 +172,14 @@ export function selectBestIcon(
     .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0') }))
     .sort((a, b) => b.size - a.size);
 
-  const best = scored[0];
-  if (!best) return null;
-  return resolveUrl(best.icon.src, baseUrl);
+  for (const candidate of scored) {
+    const resolved = resolveUrl(candidate.icon.src, baseUrl);
+    if (isHttpsUrl(resolved)) return resolved;
+  }
+  return null;
 }
 
-/** Return the URL of the best maskable icon */
+/** Return the URL of the best maskable icon. Only returns HTTPS URLs. */
 export function selectMaskableIcon(
   icons: WebManifestIcon[],
   baseUrl: string
@@ -127,9 +191,20 @@ export function selectMaskableIcon(
     .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0') }))
     .sort((a, b) => b.size - a.size);
 
-  const best = maskable[0];
-  if (!best) return null;
-  return resolveUrl(best.icon.src, baseUrl);
+  for (const candidate of maskable) {
+    const resolved = resolveUrl(candidate.icon.src, baseUrl);
+    if (isHttpsUrl(resolved)) return resolved;
+  }
+  return null;
+}
+
+/** Returns true only if the URL has the https: protocol */
+function isHttpsUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function maxSize(sizes: string): number {

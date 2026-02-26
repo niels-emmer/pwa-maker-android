@@ -14,6 +14,7 @@ export function createBuild(options: BuildOptions): BuildState {
     id,
     status: 'queued',
     options,
+    buildDir: null,
     apkPath: null,
     apkFileName: null,
     errorMessage: null,
@@ -41,10 +42,9 @@ export function deleteBuild(id: string): void {
   const state = store.get(id);
   if (!state) return;
   store.delete(id);
-  if (state.apkPath) {
-    // Best-effort async cleanup of temp dir
-    const dir = state.apkPath.split('/').slice(0, -3).join('/');
-    rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  // Use the stored buildDir for cleanup — more reliable than deriving it from apkPath
+  if (state.buildDir) {
+    rm(state.buildDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
