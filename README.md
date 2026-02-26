@@ -12,10 +12,6 @@
 
 **Live demo: [pwa.macjuu.com](https://pwa.macjuu.com)**
 
-![Desktop form](docs/screenshots/desktop-form.png)
-
----
-
 ## What it is
 
 A self-hosted web application that wraps any HTTPS PWA in a [Trusted Web Activity (TWA)](https://developer.chrome.com/docs/android/trusted-web-activity/) shell and produces a signed `.apk` file — ready to install directly on any Android phone.
