@@ -31,6 +31,7 @@ Built with the same stack as a typical vibecoded PWA (React + Vite frontend, Exp
 
 - Paste any HTTPS PWA URL → manifest fields auto-filled
 - Configurable: app name, short name, package ID, theme/background colour, display mode, orientation, icon
+- SVG icons auto-converted to 512×512 PNG (via [resvg-js](https://github.com/yisibl/resvg-js)) — no manual icon prep required
 - Server-side APK build via [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) + Android SDK 36
 - Live build log streamed via SSE while you wait (with keep-alive heartbeat)
 - Download a signed APK directly in browser
@@ -155,7 +156,7 @@ docker compose down -v
 cd backend
 npm install
 npm run dev        # tsx watch — hot reload
-npm test           # vitest — 89 tests
+npm test           # vitest — 100 tests
 ```
 
 ### Frontend
@@ -164,7 +165,7 @@ npm test           # vitest — 89 tests
 cd frontend
 npm install
 npm run dev        # Vite dev server on :5200
-npm test           # vitest + React Testing Library — 41 tests
+npm test           # vitest + React Testing Library — 43 tests
 ```
 
 The frontend dev server proxies `/api/*` to `localhost:3001`.

@@ -17,6 +17,7 @@ Browser
 ┌─────────────────────────────────┐
 │  backend   (Express, port 3001) │
 │                                 │
+│  GET  /api/token                │  Issue short-lived HMAC build token
 │  POST /api/build                │  Start a build job
 │  GET  /api/build/:id/stream     │  SSE progress stream
 │  GET  /api/build/:id/download   │  APK file download
@@ -51,13 +52,14 @@ backend/src/
 ├── types.ts              Shared TypeScript interfaces
 ├── routes/
 │   ├── health.ts         GET /api/health
+│   ├── token.ts          GET /api/token — issues HMAC build tokens (anti-bot)
 │   └── build.ts          POST /api/build, GET stream, GET download
 ├── services/
 │   ├── manifestFetcher.ts  Fetch & validate PWA web manifest from URL
 │   ├── builder.ts          Orchestrate the full APK build pipeline
 │   └── buildStore.ts       In-memory store for active build state/jobs
 └── middleware/
-    ├── rateLimiter.ts      express-rate-limit: 3 concurrent, 10/hr/IP
+    ├── rateLimiter.ts      express-rate-limit: builds (10/hr/IP) + tokens (20/10min/IP)
     └── errorHandler.ts     Centralised error → JSON response
 ```
 
@@ -86,21 +88,28 @@ frontend/src/
    - Validate required fields: `name`, `icons` (≥512px)
    - Extract: name, short_name, theme_color, background_color, icons, start_url, display, orientation
 
-2. **Project generation** (`builder.ts`)
-   - Construct `TwaManifest` from user options + manifest data
+2. **Icon preparation** (`builder.ts`)
+   - `isSvgUrl()` checks whether `iconUrl` / `maskableIconUrl` point to SVG files
+   - SVG icons are fetched and rasterised to 512×512 PNG via `@resvg/resvg-js` (pure Rust/WASM)
+   - The PNG buffer is served on a temporary in-process HTTP server (`127.0.0.1:<random port>`) so bubblewrap can fetch it — bubblewrap requires an HTTP/HTTPS URL, not a file path
+   - Server is closed in a `finally` block after `createTwaProject` completes
+
+3. **Project generation** (`builder.ts`)
+   - Construct `TwaManifest` from user options + manifest data (with resolved icon URLs)
    - `TwaGenerator.createTwaProject(tmpDir, twaManifest)` → writes all Android Gradle files
    - `chmod +x tmpDir/gradlew`
 
-3. **Keystore** (`builder.ts`)
+4. **Keystore** (`builder.ts`)
    - `keytool -genkey` → `tmpDir/keystore.jks`
    - Password: random 32-char hex, discarded after signing (sideload-only)
 
-4. **Gradle build**
+5. **Gradle build**
    - `./gradlew assembleRelease` in `tmpDir`
-   - Streams stdout/stderr to SSE client
+   - Streams stdout/stderr to SSE client via `emitProgress` → `res.write()` + `res.flush()`
+   - **`res.flush()` is required after every `res.write()`.** Express's `compression` middleware wraps `res.write()` in a gzip encoder; without flushing, events accumulate in the buffer and are only released when `res.end()` is called (i.e. at build completion), which makes progress invisible to the user.
    - GRADLE_USER_HOME mounted as Docker volume for caching
 
-5. **Sign + serve**
+6. **Sign + serve**
    - `apksigner sign` → `app-release-signed.apk`
    - Stored in build store, served on download endpoint
    - Cleanup scheduled: 1 hour TTL or immediately after download
@@ -119,6 +128,7 @@ frontend/src/
 | `BUILD_TTL_HOURS` | `1` | Hours to keep built APK |
 | `CORS_ORIGIN` | `*` | Allowed CORS origin |
 | `NODE_ENV` | `production` | Node environment |
+| `BUILD_TOKEN_SECRET` | *(random)* | HMAC-SHA256 secret for anti-bot build tokens. Generate with `openssl rand -hex 32`. If unset, a random secret is generated at startup (tokens invalidated on restart). |
 
 ## Ports (internal Docker network)
 

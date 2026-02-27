@@ -104,9 +104,25 @@ Every `POST /api/build` must include a short-lived token obtained from `GET /api
 **Honeypot field (frontend, silent)**
 A CSS-invisible `<input name="website">` is present in the build form. Bot auto-fillers populate it; the submit handler silently drops those submissions. Legitimate users never see or interact with it.
 
+### Icon URL handling
+
+Icons are fetched from URLs declared in the PWA web manifest. All icon fetches:
+
+- Pass through the same SSRF allowlist as manifest fetches (`isPrivateHostname()` → blocked before any request is made)
+- Must resolve to `https://` — plain-HTTP icon URLs are silently skipped during manifest parsing
+- SVG icons are rasterised server-side via **resvg-js** (pure Rust/WASM, no native system binaries) before being passed to bubblewrap, which requires PNG. The rasterised PNG is served by a temporary in-process HTTP server on `127.0.0.1:<random port>` and is never written to disk. The server is closed in a `finally` block immediately after bubblewrap completes project generation.
+
 ### Dependencies
 
-Dependencies are pinned in `package-lock.json`. Run `npm audit` in each package directory to check for known vulnerabilities before deploying to production.
+Dependencies are pinned in `package-lock.json`.
+
+**GitHub Dependabot alerts are enabled** on this repository and are actively monitored. Security advisories that Dependabot flags are triaged promptly:
+- Critical / HIGH severity: patched or overridden within the same session they are reported
+- MEDIUM severity: patched in the next planned maintenance session
+
+Where a direct upgrade is not possible (e.g. a transitive dependency with no direct-dependency update available), npm `overrides` are used in `package.json` to force the patched version.
+
+Run `npm audit` locally to check the current state:
 
 ```bash
 cd backend  && npm audit

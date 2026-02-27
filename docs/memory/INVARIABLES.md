@@ -14,7 +14,14 @@ These rules are permanent. They represent security-by-design decisions that must
 - The PWA URL must be HTTPS (no HTTP, no file://, no localhost unless `NODE_ENV=development`)
 - Package ID must match `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$`
 - App name: max 50 chars, stripped of any shell-special characters
-- Icon URLs must be same-origin as the PWA URL or a data URI
+- Icon URLs (from the web manifest) must resolve to `https://` — plain-HTTP icon URLs are silently skipped in `selectBestIcon` / `selectMaskableIcon`. No same-origin restriction: icons may be hosted on a CDN separate from the PWA origin.
+
+### SVG icon processing
+- SVG icons are converted to PNG **server-side** before being passed to bubblewrap
+- The conversion uses `@resvg/resvg-js` (pure Rust/WASM — no native system binary required)
+- The converted PNG is **never written to disk** — it is served from an in-memory Node.js HTTP server on `127.0.0.1:<random port>`
+- The temp server **must** be closed in a `finally` block after `createTwaProject` returns, even if an error is thrown
+- Icon fetches for SVG conversion pass through the same SSRF blocklist as manifest fetches
 
 ### SSRF protection
 - All outbound HTTP fetches (manifest discovery, icon resolution) pass through `fetchWithTimeout()` in `manifestFetcher.ts`
