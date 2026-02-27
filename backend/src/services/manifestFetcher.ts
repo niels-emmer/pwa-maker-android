@@ -158,8 +158,22 @@ function extractManifestUrl(html: string, pageUrl: string): string | null {
 // ─── Icon selection ───────────────────────────────────────────────────────────
 
 /**
+ * True if the icon is SVG (by MIME type or .svg extension).
+ * Bubblewrap requires rasterised images; SVGs are handled by the builder via
+ * @resvg/resvg-js conversion, but we prefer an existing PNG/WebP when available.
+ */
+export function isSvgIcon(icon: WebManifestIcon): boolean {
+  return (
+    icon.type === 'image/svg+xml' ||
+    (icon.src?.toLowerCase().endsWith('.svg') ?? false)
+  );
+}
+
+/**
  * Return the URL of the largest non-maskable icon (≥ 512px preferred).
  * Only returns HTTPS URLs — HTTP icons are skipped.
+ * Raster icons (PNG/WebP) are ranked above SVGs of the same size; an SVG is
+ * returned only when no raster option is available (the builder will convert it).
  */
 export function selectBestIcon(
   icons: WebManifestIcon[],
@@ -169,8 +183,9 @@ export function selectBestIcon(
 
   const scored = icons
     .filter((i) => !i.purpose?.includes('maskable'))
-    .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0') }))
-    .sort((a, b) => b.size - a.size);
+    .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0'), svg: isSvgIcon(i) }))
+    // Sort: non-SVG first (svg=false < svg=true); within same type, larger wins.
+    .sort((a, b) => Number(a.svg) - Number(b.svg) || b.size - a.size);
 
   for (const candidate of scored) {
     const resolved = resolveUrl(candidate.icon.src, baseUrl);
@@ -188,8 +203,8 @@ export function selectMaskableIcon(
 
   const maskable = icons
     .filter((i) => i.purpose?.includes('maskable'))
-    .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0') }))
-    .sort((a, b) => b.size - a.size);
+    .map((i) => ({ icon: i, size: maxSize(i.sizes ?? '0x0'), svg: isSvgIcon(i) }))
+    .sort((a, b) => Number(a.svg) - Number(b.svg) || b.size - a.size);
 
   for (const candidate of maskable) {
     const resolved = resolveUrl(candidate.icon.src, baseUrl);

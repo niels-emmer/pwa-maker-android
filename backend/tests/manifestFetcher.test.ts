@@ -5,6 +5,7 @@ import {
   selectMaskableIcon,
   deriveOptions,
   isPrivateHostname,
+  isSvgIcon,
 } from '../src/services/manifestFetcher.js';
 import type { WebManifestIcon } from '../src/types.js';
 
@@ -185,6 +186,26 @@ describe('derivePackageId', () => {
   });
 });
 
+// ─── isSvgIcon ───────────────────────────────────────────────────────────────
+
+describe('isSvgIcon', () => {
+  it('detects by .svg extension', () => {
+    expect(isSvgIcon({ src: '/icon-512.svg' })).toBe(true);
+  });
+
+  it('detects by image/svg+xml type', () => {
+    expect(isSvgIcon({ src: '/icon', type: 'image/svg+xml' })).toBe(true);
+  });
+
+  it('returns false for PNG icons', () => {
+    expect(isSvgIcon({ src: '/icon-512.png', type: 'image/png' })).toBe(false);
+  });
+
+  it('returns false when no extension or type', () => {
+    expect(isSvgIcon({ src: '/icon' })).toBe(false);
+  });
+});
+
 // ─── selectBestIcon ──────────────────────────────────────────────────────────
 
 describe('selectBestIcon', () => {
@@ -201,6 +222,21 @@ describe('selectBestIcon', () => {
       { src: '/icon-48.png', sizes: '48x48' },
     ];
     expect(selectBestIcon(icons, base)).toBe('https://example.com/icon-512.png');
+  });
+
+  it('prefers PNG over SVG even when SVG is listed first or is larger', () => {
+    const icons: WebManifestIcon[] = [
+      { src: '/icon.svg', sizes: '1024x1024' },
+      { src: '/icon-512.png', sizes: '512x512' },
+    ];
+    expect(selectBestIcon(icons, base)).toBe('https://example.com/icon-512.png');
+  });
+
+  it('falls back to SVG when no PNG is available', () => {
+    const icons: WebManifestIcon[] = [
+      { src: '/icon-512.svg', sizes: '512x512' },
+    ];
+    expect(selectBestIcon(icons, base)).toBe('https://example.com/icon-512.svg');
   });
 
   it('skips maskable icons', () => {
