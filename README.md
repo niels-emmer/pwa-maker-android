@@ -1,11 +1,6 @@
 > [!CAUTION]
 > **This entire project is the result of agentic coding.** It was built through prompts and iterative debugging sessions, with no human review of the code. It is to be taken as an experiment. Reasonable effort has been made to apply proper security architecture — SSRF protection, input validation, non-root containers, capability dropping, rate limiting — but the code has **not been audited by a human developer**. Run it on infrastructure you control, behind auth, at your own risk.
 
-> [!NOTE]
-> Human here: the only thing I have personally written in this repo is this paragraph. As Claude wrote above, this here app is a mere 'state of agentic-code' experiment, and functionality I needed myself. I am NOT a dev (by profession) and Claude is book-smart but **cannot think**. Keep that in mind firing up any of the below.
->
-> [Journey log here](stats.md)
-
 # PWA Maker — Android APK Generator
 
 > Turn any Progressive Web App into a signed Android APK you can sideload directly onto any Android device. No Android Studio, no Play Store, no fuss.
