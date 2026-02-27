@@ -112,8 +112,16 @@ router.get('/:id/stream', (req: Request, res: Response): void => {
   res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
   res.flushHeaders();
 
+  // `compression` middleware wraps res.write() in a gzip encoder that buffers
+  // output until res.end(). Calling flush() after each write forces the encoder
+  // to emit the compressed chunk immediately so SSE events stream in real-time.
+  const flush = (): void => {
+    (res as unknown as { flush?: () => void }).flush?.();
+  };
+
   const send = (event: ProgressEvent): void => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
+    flush();
   };
 
   // If already complete or errored, replay buffer and close
@@ -139,6 +147,7 @@ router.get('/:id/stream', (req: Request, res: Response): void => {
   // SSE comments (lines starting with ':') are ignored by the browser.
   const heartbeat = setInterval(() => {
     res.write(': heartbeat\n\n');
+    flush();
   }, 15_000);
 
   req.on('close', () => {

@@ -189,6 +189,42 @@ describe('useBuild', () => {
     expect(result.current.state.errorMessage).toBe('Gradle failed');
   });
 
+  it('sets "Lost connection" error when onerror fires without a prior terminal event', async () => {
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'onerror-test' }) });
+
+    const { result } = renderHook(() => useBuild());
+
+    await act(async () => {
+      await result.current.startBuild(mockOptions);
+    });
+
+    act(() => {
+      mockES.dispatchError();
+    });
+
+    await waitFor(() => expect(result.current.state.phase).toBe('error'));
+    expect(result.current.state.errorMessage).toBe('Lost connection to build server');
+  });
+
+  it('does not overwrite complete phase when onerror fires after a complete event', async () => {
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'onerror-after-complete' }) });
+
+    const { result } = renderHook(() => useBuild());
+
+    await act(async () => {
+      await result.current.startBuild(mockOptions);
+    });
+
+    // Simulate: complete event and onerror arrive in rapid succession (race condition)
+    act(() => {
+      mockES.dispatchMessage({ type: 'complete', percent: 100 });
+      mockES.dispatchError();
+    });
+
+    await waitFor(() => expect(result.current.state.phase).toBe('complete'));
+    expect(result.current.state.errorMessage).toBeNull();
+  });
+
   it('resets state on reset()', async () => {
     mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'reset-test' }) });
 
