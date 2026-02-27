@@ -115,6 +115,7 @@ router.get('/:id/stream', (req: Request, res: Response): void => {
   const listener = (event: ProgressEvent): void => {
     send(event);
     if (event.type === 'complete' || event.type === 'error') {
+      clearInterval(heartbeat);
       res.end();
       removeListener(id, listener);
     }
@@ -122,7 +123,15 @@ router.get('/:id/stream', (req: Request, res: Response): void => {
 
   addListener(id, listener);
 
+  // Keep-alive: emit an SSE comment every 15 s so nginx / load-balancers and
+  // idle-connection timers don't close the stream while Gradle is running.
+  // SSE comments (lines starting with ':') are ignored by the browser.
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 15_000);
+
   req.on('close', () => {
+    clearInterval(heartbeat);
     removeListener(id, listener);
   });
 });
