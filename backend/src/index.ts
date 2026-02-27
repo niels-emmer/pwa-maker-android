@@ -6,6 +6,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import healthRouter from './routes/health.js';
 import buildRouter from './routes/build.js';
+import tokenRouter from './routes/token.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { manifestRateLimiter } from './middleware/rateLimiter.js';
 
@@ -76,6 +77,7 @@ app.use(morgan('[:date[iso]] :method :url :status :response-time ms - :res[conte
 
 app.use('/api', healthRouter);
 app.use('/api/build', buildRouter);
+app.use('/api/token', tokenRouter);
 
 // Also expose manifest fetch as a passthrough so the frontend can avoid CORS issues.
 // Rate-limited to prevent SSRF scanning. SSRF IP blocking is enforced inside

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { BuildOptions, DisplayMode, OrientationMode } from '../types.js';
 import { useManifest } from '../hooks/useManifest.js';
 
@@ -47,6 +47,9 @@ export function BuildForm({ onSubmit, disabled }: Props) {
   const [form, setForm] = useState<BuildOptions>(EMPTY);
   const [pwaUrlInput, setPwaUrlInput] = useState('');
   const [touched, setTouched] = useState<Partial<Record<keyof BuildOptions, true>>>({});
+
+  // Honeypot ref — invisible to humans; bots that auto-fill all inputs will populate this
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const { data: manifest, loading: manifestLoading, error: manifestError } = useManifest(pwaUrlInput);
 
@@ -109,6 +112,9 @@ export function BuildForm({ onSubmit, disabled }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isFormValid || disabled) return;
+    // Honeypot: bots that auto-fill all fields will have populated this hidden input.
+    // Silently drop the submission — no error shown, bot gets no signal.
+    if (honeypotRef.current?.value) return;
     onSubmit(form);
   }
 
@@ -369,6 +375,23 @@ export function BuildForm({ onSubmit, disabled }: Props) {
           </Field>
         </div>
       </section>
+
+      {/* ── Honeypot — invisible to humans, filled by bot auto-fillers ── */}
+      <input
+        ref={honeypotRef}
+        type="text"
+        name="website"
+        tabIndex={-1}
+        aria-hidden="true"
+        autoComplete="off"
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          height: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+        }}
+      />
 
       {/* ── Submit ── */}
       <button

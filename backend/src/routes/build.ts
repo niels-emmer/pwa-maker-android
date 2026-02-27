@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { createReadStream, existsSync } from 'fs';
 import { z } from 'zod';
 import { buildRateLimiter } from '../middleware/rateLimiter.js';
+import { verifyToken } from './token.js';
 import {
   createBuild,
   getBuild,
@@ -61,7 +62,17 @@ const BuildOptionsSchema = z.object({
 // ─── POST /api/build ──────────────────────────────────────────────────────────
 
 router.post('/', buildRateLimiter, (req: Request, res: Response): void => {
-  const parsed = BuildOptionsSchema.safeParse(req.body);
+  // ── Extract and validate HMAC build token (anti-bot, checked before Zod) ──
+  const rawBody = req.body as Record<string, unknown>;
+  const { buildToken, ...bodyWithoutToken } = rawBody;
+  if (typeof buildToken !== 'string' || !verifyToken(buildToken)) {
+    res.status(401).json({
+      error: 'Missing or invalid build token. Please reload the page and try again.',
+    });
+    return;
+  }
+
+  const parsed = BuildOptionsSchema.safeParse(bodyWithoutToken);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
     return;

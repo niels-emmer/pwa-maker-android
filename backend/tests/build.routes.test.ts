@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+import { generateToken } from '../src/routes/token.js';
 
 // ─── Mock heavy dependencies before importing the app ────────────────────────
 
@@ -15,6 +16,17 @@ vi.mock('../src/services/buildStore.js', async (importOriginal) => {
   return {
     ...original,
     countRunningBuilds: vi.fn().mockReturnValue(0),
+  };
+});
+
+// Mock the build rate limiter as a passthrough so it never fires 429 during tests.
+// Rate-limiting behaviour is an integration concern tested separately; here we
+// test the route's own logic (token validation, Zod parsing, concurrency cap).
+vi.mock('../src/middleware/rateLimiter.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/middleware/rateLimiter.js')>();
+  return {
+    ...original,
+    buildRateLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   };
 });
 
@@ -41,16 +53,42 @@ describe('POST /api/build', () => {
     maskableIconUrl: null,
   };
 
+  // Helper: add a fresh valid HMAC token to any payload
+  const withToken = (payload: object) => ({ ...payload, buildToken: generateToken() });
+
   it('returns 202 with buildId for valid payload', async () => {
-    const res = await request(app).post('/api/build').send(validPayload);
+    const res = await request(app).post('/api/build').send(withToken(validPayload));
     expect(res.status).toBe(202);
     expect(res.body).toHaveProperty('buildId');
     expect(typeof res.body.buildId).toBe('string');
   });
 
+  it('returns 401 when buildToken is missing', async () => {
+    const res = await request(app).post('/api/build').send(validPayload);
+    expect(res.status).toBe(401);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('returns 401 when buildToken is invalid', async () => {
+    const res = await request(app)
+      .post('/api/build')
+      .send({ ...validPayload, buildToken: 'bad.token' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when buildToken has a tampered signature', async () => {
+    const realToken = generateToken();
+    const ts = realToken.slice(0, realToken.lastIndexOf('.'));
+    const tampered = `${ts}.${'0'.repeat(64)}`;
+    const res = await request(app)
+      .post('/api/build')
+      .send({ ...validPayload, buildToken: tampered });
+    expect(res.status).toBe(401);
+  });
+
   it('returns 400 for missing pwaUrl', async () => {
     const { pwaUrl: _, ...withoutUrl } = validPayload;
-    const res = await request(app).post('/api/build').send(withoutUrl);
+    const res = await request(app).post('/api/build').send(withToken(withoutUrl));
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
@@ -60,7 +98,7 @@ describe('POST /api/build', () => {
     process.env.NODE_ENV = 'production';
     const res = await request(app)
       .post('/api/build')
-      .send({ ...validPayload, pwaUrl: 'http://example.com' });
+      .send(withToken({ ...validPayload, pwaUrl: 'http://example.com' }));
     process.env.NODE_ENV = old;
     expect(res.status).toBe(400);
   });
@@ -68,35 +106,35 @@ describe('POST /api/build', () => {
   it('returns 400 for invalid packageId', async () => {
     const res = await request(app)
       .post('/api/build')
-      .send({ ...validPayload, packageId: 'not-valid' });
+      .send(withToken({ ...validPayload, packageId: 'not-valid' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 for invalid hex themeColor', async () => {
     const res = await request(app)
       .post('/api/build')
-      .send({ ...validPayload, themeColor: 'red' });
+      .send(withToken({ ...validPayload, themeColor: 'red' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 for appName exceeding 50 chars', async () => {
     const res = await request(app)
       .post('/api/build')
-      .send({ ...validPayload, appName: 'A'.repeat(51) });
+      .send(withToken({ ...validPayload, appName: 'A'.repeat(51) }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 for invalid display mode', async () => {
     const res = await request(app)
       .post('/api/build')
-      .send({ ...validPayload, display: 'browser' });
+      .send(withToken({ ...validPayload, display: 'browser' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 503 when at concurrent build limit', async () => {
     const { countRunningBuilds } = await import('../src/services/buildStore.js');
     vi.mocked(countRunningBuilds).mockReturnValueOnce(999);
-    const res = await request(app).post('/api/build').send(validPayload);
+    const res = await request(app).post('/api/build').send(withToken(validPayload));
     expect(res.status).toBe(503);
   });
 });

@@ -111,4 +111,33 @@ describe('BuildForm', () => {
     fireEvent.submit(screen.getByRole('form', { name: /build configuration/i }));
     expect(mockSubmit).not.toHaveBeenCalled();
   });
+
+  it('renders a hidden honeypot input with name="website"', () => {
+    const { container } = render(<BuildForm onSubmit={mockSubmit} disabled={false} />);
+    const honeypot = container.querySelector('input[name="website"]') as HTMLInputElement;
+    expect(honeypot).toBeInTheDocument();
+    expect(honeypot.getAttribute('aria-hidden')).toBe('true');
+    expect(honeypot.getAttribute('tabindex')).toBe('-1');
+    expect(honeypot.getAttribute('autocomplete')).toBe('off');
+  });
+
+  it('does not call onSubmit when honeypot is filled (bot simulation)', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<BuildForm onSubmit={mockSubmit} disabled={false} />);
+
+    // Fill all required fields so the form is valid
+    await user.type(screen.getByLabelText(/website url/i), 'https://example.com');
+    await user.type(screen.getByLabelText(/app name/i), 'Test App');
+    await user.type(screen.getByLabelText(/short name/i), 'TestApp');
+    await user.type(screen.getByPlaceholderText(/icon-512\.png/i), 'https://example.com/icon.png');
+
+    // Simulate a bot filling the hidden honeypot
+    const honeypot = container.querySelector('input[name="website"]') as HTMLInputElement;
+    fireEvent.change(honeypot, { target: { value: 'http://spam.example.com' } });
+
+    // Submit
+    fireEvent.submit(screen.getByRole('form', { name: /build configuration/i }));
+
+    expect(mockSubmit).not.toHaveBeenCalled();
+  });
 });

@@ -62,11 +62,18 @@ describe('useBuild', () => {
     expect(result.current.downloadUrl).toBeNull();
   });
 
+  // Helper: mock the token fetch then the build fetch in sequence
+  const mockTokenThenBuild = (buildResponse: Partial<Response>) => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ token: 'test.token' }),
+      } as Response)
+      .mockResolvedValueOnce(buildResponse as Response);
+  };
+
   it('transitions to building phase on startBuild', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ buildId: 'test-123' }),
-    } as Response);
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'test-123' }) });
 
     const { result } = renderHook(() => useBuild());
 
@@ -78,12 +85,46 @@ describe('useBuild', () => {
     expect(result.current.state.buildId).toBe('test-123');
   });
 
-  it('transitions to error phase on fetch failure', async () => {
+  it('includes buildToken in POST body', async () => {
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'token-check' }) });
+
+    const { result } = renderHook(() => useBuild());
+
+    await act(async () => {
+      await result.current.startBuild(mockOptions);
+    });
+
+    // Verify two fetches: token then build
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    const [tokenCall, buildCall] = vi.mocked(fetch).mock.calls;
+    expect(tokenCall[0]).toBe('/api/token');
+    const buildBody = JSON.parse(buildCall[1]?.body as string) as Record<string, unknown>;
+    expect(buildBody.buildToken).toBe('test.token');
+  });
+
+  it('transitions to error phase when token fetch fails', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: 'Too many requests' }),
+    } as Response);
+
+    const { result } = renderHook(() => useBuild());
+
+    await act(async () => {
+      await result.current.startBuild(mockOptions);
+    });
+
+    expect(result.current.state.phase).toBe('error');
+    expect(result.current.state.errorMessage).toContain('Could not start build');
+  });
+
+  it('transitions to error phase on build fetch failure', async () => {
+    mockTokenThenBuild({
       ok: false,
       status: 503,
       json: async () => ({ error: 'Server busy' }),
-    } as Response);
+    });
 
     const { result } = renderHook(() => useBuild());
 
@@ -96,10 +137,7 @@ describe('useBuild', () => {
   });
 
   it('appends log entries from SSE messages', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ buildId: 'test-456' }),
-    } as Response);
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'test-456' }) });
 
     const { result } = renderHook(() => useBuild());
 
@@ -118,10 +156,7 @@ describe('useBuild', () => {
   });
 
   it('transitions to complete phase on complete event', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ buildId: 'build-complete-789' }),
-    } as Response);
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'build-complete-789' }) });
 
     const { result } = renderHook(() => useBuild());
 
@@ -138,10 +173,7 @@ describe('useBuild', () => {
   });
 
   it('transitions to error phase on error event', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ buildId: 'build-err-999' }),
-    } as Response);
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'build-err-999' }) });
 
     const { result } = renderHook(() => useBuild());
 
@@ -158,10 +190,7 @@ describe('useBuild', () => {
   });
 
   it('resets state on reset()', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ buildId: 'reset-test' }),
-    } as Response);
+    mockTokenThenBuild({ ok: true, json: async () => ({ buildId: 'reset-test' }) });
 
     const { result } = renderHook(() => useBuild());
 

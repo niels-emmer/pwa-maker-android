@@ -30,13 +30,29 @@ export function useBuild() {
       errorMessage: null,
     });
 
-    // 1. POST to start the build
+    // 1. Fetch a short-lived HMAC build token (anti-bot)
+    let buildToken: string;
+    try {
+      const tokenRes = await fetch('/api/token');
+      if (!tokenRes.ok) throw new Error(`Token fetch failed: ${tokenRes.status}`);
+      const tokenBody = (await tokenRes.json()) as { token: string };
+      buildToken = tokenBody.token;
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        phase: 'error',
+        errorMessage: 'Could not start build — please try again.',
+      }));
+      return;
+    }
+
+    // 2. POST to start the build (token included in body)
     let buildId: string;
     try {
       const res = await fetch('/api/build', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(options),
+        body: JSON.stringify({ ...options, buildToken }),
       });
 
       if (!res.ok) {
@@ -57,7 +73,7 @@ export function useBuild() {
 
     setState((s) => ({ ...s, buildId }));
 
-    // 2. Open SSE stream
+    // 3. Open SSE stream
     const es = new EventSource(`/api/build/${buildId}/stream`);
     esRef.current = es;
 
