@@ -43,6 +43,6 @@
 | backend | ✅ Complete |
 | frontend | ✅ Complete |
 | docker | ✅ Complete |
-| tests | ✅ Passing (46 backend + 37 frontend) |
+| tests | ✅ Passing (100 backend + 43 frontend) |
 | README / SECURITY | ✅ Complete |
 | **Production deploy** | ✅ Live at https://pwa.macjuu.com |

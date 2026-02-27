@@ -106,6 +106,36 @@
 
 ---
 
+## ADR-010: SVG icons rasterised via resvg-js + temp in-process HTTP server
+
+**Date**: 2026-02-27
+**Status**: Accepted
+
+**Context**: Bubblewrap's `TwaGenerator` requires raster icon URLs (`image/png`). Many PWA manifests use SVG icons (e.g. served from auth-gated apps where `.png` equivalents don't exist, or where the manifest explicitly lists `.svg`). Simply rejecting SVG icons forced the user to supply an icon URL manually on every build.
+
+**Decision**: When an icon URL ends with `.svg`, fetch the SVG server-side, rasterise it to a 512×512 PNG via `@resvg/resvg-js` (pure Rust/WASM — no system `librsvg2`, no `libvips` required, no native binary outside the WASM module), then spin up a tiny Node.js `http.createServer` on `127.0.0.1:<random port>` that serves the in-memory PNG buffer. Pass that `http://127.0.0.1:<port>/icon.png` URL to TwaManifest. Close the server in a `finally` block after `createTwaProject` returns.
+
+**Alternative considered**: Write the PNG to a temp file and pass a `file://` URL. Rejected — bubblewrap does not support `file://` icon URLs and fetches the icon over HTTP.
+
+**Consequences**: SVG icons work transparently; user never has to manually convert or substitute icons. The temp server is always cleaned up, even if project generation throws. `@resvg/resvg-js` adds ~5 MB to the backend image (WASM binary) but has no runtime system dependencies.
+
+---
+
+## ADR-011: Call res.flush() after every SSE res.write()
+
+**Date**: 2026-02-27
+**Status**: Accepted
+
+**Context**: Build progress events were invisible to the frontend during the build; the progress bar stayed at 0% for the full build duration, then all events arrived simultaneously and "Lost connection" was shown instead of the completed state. Root cause: Express's `compression` middleware intercepts `res.write()` and feeds output through a gzip encoder. The encoder buffers chunks internally and only flushes when `res.end()` is called — so all SSE events accumulated in the buffer and were delivered at once when the build finished.
+
+**Decision**: After every `res.write()` in the SSE route (both in the `send()` helper and the heartbeat `setInterval`), call `(res as { flush?: () => void }).flush?.()`. The `flush()` method is injected by the `compression` middleware and forces the gzip encoder to emit a compressed chunk immediately. The optional-chaining guard (`?.`) means it is a no-op when `compression` is not mounted (e.g. tests).
+
+**Complementary fix**: When all buffered events + the connection-close arrive in the same TCP segment, `EventSource.onerror` can fire before React has processed the queued `onmessage` events (including the final `complete` event). Guard against this by wrapping the `onerror` `setState` call in `setTimeout(0)`, which defers it to the next macrotask tick — after all already-queued `onmessage` handlers have run.
+
+**Consequences**: SSE events stream in real time during the build. The `onerror` guard prevents a race condition where "Lost connection" incorrectly overwrites a successful terminal state.
+
+---
+
 ## ADR-008: Tailwind CSS, no component library
 
 **Date**: 2026-02-26
