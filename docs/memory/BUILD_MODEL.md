@@ -30,10 +30,22 @@ All auto-filled fields are editable by the user.
 
 ## API contract
 
+### GET /api/token
+Returns a short-lived HMAC-SHA256 signed build token. Must be fetched immediately before `POST /api/build`.
+
+Response:
+```json
+{ "token": "1708992000000.a3f9c8..." }
+```
+- Format: `${timestamp_ms}.${HMAC-SHA256(BUILD_TOKEN_SECRET, timestamp_ms)}`
+- TTL: 10 minutes
+- Rate limited: 20 requests per IP per 10 minutes
+
 ### POST /api/build
-Request body:
+Request body (`buildToken` is extracted pre-validation and discarded; not part of `BuildOptions`):
 ```json
 {
+  "buildToken": "<token from GET /api/token>",
   "pwaUrl": "https://example.com",
   "appName": "My App",
   "shortName": "MyApp",

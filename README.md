@@ -35,6 +35,7 @@ Built with the same stack as a typical vibecoded PWA (React + Vite frontend, Exp
 - Live build log streamed via SSE while you wait (with keep-alive heartbeat)
 - Download a signed APK directly in browser
 - Dark theme, mobile-first UI
+- Bot prevention: HMAC-signed build tokens (server-enforced) + honeypot field (client-side)
 - Rate limiting, input validation, non-root container, no shell injection
 - Docker Compose — one command deploy
 - Production-hardened: nginx dynamic DNS, OOM-safe Gradle JVM cap, request logging
@@ -122,6 +123,7 @@ All configuration is via environment variables in `.env`:
 | `BUILD_RATE_LIMIT_PER_HOUR` | `10` | Max builds per IP per hour |
 | `BUILD_TTL_HOURS` | `1` | Hours to keep built APK available |
 | `CORS_ORIGIN` | `*` | Allowed CORS origin |
+| `BUILD_TOKEN_SECRET` | *(random)* | HMAC secret for build tokens — set with `openssl rand -hex 32`; if unset a random secret is generated per restart |
 
 ---
 
@@ -153,7 +155,7 @@ docker compose down -v
 cd backend
 npm install
 npm run dev        # tsx watch — hot reload
-npm test           # vitest — 46 tests
+npm test           # vitest — 89 tests
 ```
 
 ### Frontend
@@ -162,7 +164,7 @@ npm test           # vitest — 46 tests
 cd frontend
 npm install
 npm run dev        # Vite dev server on :5200
-npm test           # vitest + React Testing Library — 37 tests
+npm test           # vitest + React Testing Library — 41 tests
 ```
 
 The frontend dev server proxies `/api/*` to `localhost:3001`.

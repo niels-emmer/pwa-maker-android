@@ -90,8 +90,19 @@ Applied at the Express middleware level (not just documentation):
 |---|---|---|
 | Concurrent builds | 3 | `MAX_CONCURRENT_BUILDS` env var |
 | Builds per IP per hour | 10 | `BUILD_RATE_LIMIT_PER_HOUR` env var |
+| Token requests per IP per 10 min | 20 | *(not configurable; prevents token harvesting at scale)* |
 
 These limits protect the VPS from resource exhaustion. Reduce them further if your VPS has limited RAM/CPU.
+
+### Bot prevention
+
+Two complementary layers defend against automated build abuse:
+
+**HMAC build token (backend-enforced)**
+Every `POST /api/build` must include a short-lived token obtained from `GET /api/token`. The token is `${timestamp_ms}.${HMAC-SHA256(BUILD_TOKEN_SECRET, timestamp_ms)}` and expires after 10 minutes. Automated scripts that POST directly without first fetching a valid token are rejected with 401. Set `BUILD_TOKEN_SECRET` in `.env` (see Configuration).
+
+**Honeypot field (frontend, silent)**
+A CSS-invisible `<input name="website">` is present in the build form. Bot auto-fillers populate it; the submit handler silently drops those submissions. Legitimate users never see or interact with it.
 
 ### Dependencies
 
@@ -106,8 +117,10 @@ cd frontend && npm audit
 
 The Nginx frontend config sets:
 - `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: SAMEORIGIN`
+- `X-Frame-Options: DENY`
 - `X-XSS-Protection: 1; mode=block`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 
-For production, add `Content-Security-Policy` and `Strict-Transport-Security` at your SSL proxy level.
+- `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'`
+
+For production, add `Strict-Transport-Security` (HSTS) at your SSL proxy level.
