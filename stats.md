@@ -12,6 +12,7 @@
 | 4 | 2026-02-27 | 3 | 4 | +131 | Debug & fix "Lost connection" / unhealthy-frontend; first successful APK build confirmed |
 | 5 | 2026-02-27 | 7 | 4 | +345 | Bot prevention: HMAC build token (backend) + honeypot field (frontend); nginx proxy_pass regression fix |
 | 6 | 2026-02-27 | 3 | 0 | +52 | Dependabot fixes: npm overrides for tar@7.5.8 (4×HIGH) and esbuild@0.25.0 (2×MEDIUM) |
+| 7 | 2026-02-27 | 4 | 1 | +245 | SVG icon conversion (resvg-js + temp HTTP server); manifest 500→422 error handling; PNG preferred over SVG in icon selection |
 
 ---
 
@@ -19,13 +20,13 @@
 
 | Metric | Value |
 |---|---|
-| **Total prompts** | 24 |
-| **Total debug sessions** | 20 |
-| **Total lines of code** | 5 398 |
-| **Tracked files** | 60 |
-| **Tests** | 130 (89 backend + 41 frontend) |
+| **Total prompts** | 28 |
+| **Total debug sessions** | 21 |
+| **Total lines of code** | 5 643 |
+| **Tracked files** | 62 |
+| **Tests** | 141 (100 backend + 41 frontend) |
 | **Commits** | 26 |
-| **Session wall-clock time** | ~120 min cumulative |
+| **Session wall-clock time** | ~140 min cumulative |
 | **Production URL** | https://pwa.macjuu.com |
 
 ---
@@ -54,6 +55,7 @@
 | 18 | Backend tests: 503 test returned 429 | 11 POST requests to `/api/build` in test suite exceeded `BUILD_RATE_LIMIT_PER_HOUR=10`; rate limiter fired before concurrency check | Added `vi.mock('../src/middleware/rateLimiter.js', ...)` to mock `buildRateLimiter` as a no-op passthrough |
 | 19 | `git push` rejected | Remote had a new commit (user README edit `2296fde`) after local branch diverged | `git pull --rebase origin main && git push` |
 | 20 | nginx manifest 404 regression after deploy | `proxy_pass $backend_upstream/api/` — variable proxy_pass cannot perform "strip prefix / substitute path" rewriting; `/api/manifest?url=...` arrived at backend as `GET /api/` (path mangled, query string lost) | Changed to `proxy_pass $backend_upstream;` — host variable only; nginx forwards original URI unchanged |
+| 21 | VPS "lost connection to build server" after dependabot-fixes deploy | Port 3001 not exposed to host (`expose:` not `ports:`); direct curl returned empty. After fixing to `docker compose exec backend`, SSE stream showed bubblewrap error: icon URL (SVG, or `.png` that returned HTML because auth-gated) had wrong Content-Type | Added SVG→PNG conversion in builder via resvg-js + temp in-process HTTP server; prefers PNG in icon selection |
 
 ---
 
@@ -80,6 +82,19 @@
 | Dockerfile + docker-compose | ~90 |
 | CSS | ~61 |
 | **Total** | **5 346** |
+
+---
+
+## LOC breakdown (sessions 6–7, cumulative)
+
+| Category | Lines |
+|---|---|
+| TypeScript / TSX (source + tests) | ~3 850 |
+| Markdown (README, SECURITY, docs/memory) | ~840 |
+| Config (JSON, HTML, nginx.conf, postcss) | ~225 |
+| Dockerfile + docker-compose | ~90 |
+| CSS | ~61 |
+| **Total** | **5 643** |
 
 ---
 

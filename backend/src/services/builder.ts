@@ -1,4 +1,6 @@
 import { mkdir, chmod, rm, readdir } from 'fs/promises';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -13,6 +15,83 @@ const KEYTOOL = join(JAVA_HOME, 'bin', 'keytool');
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ProgressCallback = (message: string, percent: number) => void;
+
+// ─── SVG → PNG conversion ─────────────────────────────────────────────────────
+
+/** True when the URL path ends with .svg (case-insensitive). */
+export function isSvgUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.svg');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch an SVG from `url` and rasterise it to a square PNG of `size`×`size` px.
+ * Transparency is preserved (no background fill). Uses @resvg/resvg-js (pure
+ * Rust/WASM) — no system-level librsvg or libvips required.
+ */
+async function fetchAndConvertSvg(url: string, size: number): Promise<Buffer> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch SVG icon (${res.status}): ${url}`);
+  }
+  const svgBuffer = Buffer.from(await res.arrayBuffer());
+  const { Resvg } = await import('@resvg/resvg-js');
+  const resvg = new Resvg(svgBuffer, { fitTo: { mode: 'width', value: size } });
+  const rendered = resvg.render();
+  return Buffer.from(rendered.asPng());
+}
+
+/**
+ * Spin up a tiny in-process HTTP server that serves `buffer` as image/png on
+ * a random OS-assigned port. Returns the URL and a `close()` to tear it down.
+ * Used so that bubblewrap (which only accepts HTTP/HTTPS icon URLs) can fetch
+ * the in-memory converted PNG without writing it to disk.
+ */
+function servePngBuffer(buffer: Buffer): Promise<{ url: string; close: () => void }> {
+  return new Promise((resolve, reject) => {
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': buffer.length });
+      res.end(buffer);
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as AddressInfo).port;
+      resolve({ url: `http://127.0.0.1:${port}/icon.png`, close: () => server.close() });
+    });
+    server.on('error', reject);
+  });
+}
+
+/**
+ * If an icon URL points to an SVG, convert it to a 512×512 PNG and serve it
+ * temporarily so bubblewrap can fetch a raster image. Returns resolved URLs
+ * plus a `cleanup()` that shuts down any temp servers.
+ */
+async function prepareIconUrls(options: BuildOptions): Promise<{
+  iconUrl: string | null;
+  maskableIconUrl: string | null;
+  cleanup: () => void;
+}> {
+  const closers: Array<() => void> = [];
+
+  async function maybeConvert(url: string | null | undefined): Promise<string | null> {
+    if (!url) return null;
+    if (!isSvgUrl(url)) return url;
+    const pngBuffer = await fetchAndConvertSvg(url, 512);
+    const { url: pngUrl, close } = await servePngBuffer(pngBuffer);
+    closers.push(close);
+    return pngUrl;
+  }
+
+  const [iconUrl, maskableIconUrl] = await Promise.all([
+    maybeConvert(options.iconUrl),
+    maybeConvert(options.maskableIconUrl),
+  ]);
+
+  return { iconUrl, maskableIconUrl, cleanup: () => closers.forEach((c) => c()) };
+}
 
 export interface BuildResult {
   apkPath: string;
@@ -87,54 +166,63 @@ async function generateAndroidProject(
   const host = new URL(options.pwaUrl).hostname;
   const startPath = new URL(options.pwaUrl).pathname || '/';
 
-  const twaManifestData = {
-    packageId: options.packageId,
-    host,
-    name: options.appName,
-    launcherName: options.shortName.slice(0, 12),
-    display: options.display,
-    orientation: options.orientation,
-    themeColor: options.themeColor,
-    themeColorDark: options.themeColor,
-    navigationColor: options.themeColor,
-    navigationColorDark: options.themeColor,
-    navigationDividerColor: '#000000',
-    navigationDividerColorDark: '#000000',
-    backgroundColor: options.backgroundColor,
-    enableNotifications: false,
-    startUrl: startPath,
-    iconUrl: options.iconUrl || null,
-    maskableIconUrl: options.maskableIconUrl ?? null,
-    monochromeIconUrl: null,
-    appVersion: '1.0.0',       // TwaManifest reads data.appVersion (not appVersionName)
-    appVersionCode: 1,
-    splashScreenFadeOutDuration: 300,
-    shortcuts: [],
-    generatorApp: 'pwa-maker-android',
-    webManifestUrl: null,
-    signingKey: {
-      path: join(buildDir, 'keystore.jks'),
-      alias: 'key0',
-    },
-    additionalTrustedOrigins: [],
-    retainedBundles: [],
-    sdkVersion: 34,
-    minSdkVersion: 21,
-    isMetaQuest: false,
-    fingerprints: [],
-    features: {},
-    alphaDependencies: { enabled: false },
-    enableSiteSettingsShortcut: true,
-    isChromeOSOnly: false,
-    isMonochrome: false,
-  };
+  // Convert SVG icons to PNG — bubblewrap requires rasterised images.
+  // A temporary in-process HTTP server serves the converted PNG so bubblewrap
+  // can fetch it without writing a temp file or modifying the build directory.
+  const { iconUrl, maskableIconUrl, cleanup } = await prepareIconUrls(options);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const twaManifest = new TwaManifest(twaManifestData as any);
-  const generator = new TwaGenerator();
-  const log = new ConsoleLog();
+  try {
+    const twaManifestData = {
+      packageId: options.packageId,
+      host,
+      name: options.appName,
+      launcherName: options.shortName.slice(0, 12),
+      display: options.display,
+      orientation: options.orientation,
+      themeColor: options.themeColor,
+      themeColorDark: options.themeColor,
+      navigationColor: options.themeColor,
+      navigationColorDark: options.themeColor,
+      navigationDividerColor: '#000000',
+      navigationDividerColorDark: '#000000',
+      backgroundColor: options.backgroundColor,
+      enableNotifications: false,
+      startUrl: startPath,
+      iconUrl,
+      maskableIconUrl,
+      monochromeIconUrl: null,
+      appVersion: '1.0.0',       // TwaManifest reads data.appVersion (not appVersionName)
+      appVersionCode: 1,
+      splashScreenFadeOutDuration: 300,
+      shortcuts: [],
+      generatorApp: 'pwa-maker-android',
+      webManifestUrl: null,
+      signingKey: {
+        path: join(buildDir, 'keystore.jks'),
+        alias: 'key0',
+      },
+      additionalTrustedOrigins: [],
+      retainedBundles: [],
+      sdkVersion: 34,
+      minSdkVersion: 21,
+      isMetaQuest: false,
+      fingerprints: [],
+      features: {},
+      alphaDependencies: { enabled: false },
+      enableSiteSettingsShortcut: true,
+      isChromeOSOnly: false,
+      isMonochrome: false,
+    };
 
-  await generator.createTwaProject(buildDir, twaManifest, log);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const twaManifest = new TwaManifest(twaManifestData as any);
+    const generator = new TwaGenerator();
+    const log = new ConsoleLog();
+
+    await generator.createTwaProject(buildDir, twaManifest, log);
+  } finally {
+    cleanup();
+  }
 }
 
 // ─── Keystore generation ──────────────────────────────────────────────────────

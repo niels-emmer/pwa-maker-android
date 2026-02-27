@@ -94,12 +94,14 @@ app.get('/api/manifest', manifestRateLimiter, async (req, res, next): Promise<vo
     const defaults = deriveOptions(manifest, url);
     res.json({ manifest, defaults });
   } catch (err) {
-    // Surface SSRF blocks as 403, not 500
-    if (err instanceof Error && (err as Error & { ssrfBlocked?: boolean }).ssrfBlocked) {
-      res.status(403).json({ error: err.message });
-      return;
-    }
-    next(err);
+    // Surface SSRF blocks as 403; all other manifest errors (no manifest found,
+    // fetch failed, bad JSON, etc.) are user-facing — return 422 with the real
+    // message rather than letting the error handler sanitise it to a generic 500.
+    const status = (err instanceof Error && (err as Error & { ssrfBlocked?: boolean }).ssrfBlocked)
+      ? 403
+      : 422;
+    const message = err instanceof Error ? err.message : 'Failed to fetch manifest';
+    res.status(status).json({ error: message });
   }
 });
 
