@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
+import morgan from 'morgan';
 import healthRouter from './routes/health.js';
 import buildRouter from './routes/build.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -67,6 +68,10 @@ app.use(
 app.use(compression());
 app.use(express.json({ limit: '16kb' })); // Small limit — we only receive JSON options
 
+// HTTP request logging — helps diagnose whether requests actually reach the
+// backend or are rejected at the nginx proxy level.
+app.use(morgan('[:date[iso]] :method :url :status :response-time ms - :res[content-length]'));
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use('/api', healthRouter);
@@ -99,6 +104,20 @@ app.get('/api/manifest', manifestRateLimiter, async (req, res, next): Promise<vo
 // ─── Error handling ───────────────────────────────────────────────────────────
 
 app.use(errorHandler);
+
+// ─── Process-level safety nets ────────────────────────────────────────────────
+
+// Log unhandled promise rejections before Node.js crashes (v15+) so they show
+// up in `docker compose logs backend` for post-mortem analysis.
+process.on('unhandledRejection', (reason) => {
+  console.error('[pwa-maker] unhandledRejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[pwa-maker] uncaughtException:', err);
+  // Re-throw so the process exits and Docker restarts the container.
+  throw err;
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 

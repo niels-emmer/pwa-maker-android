@@ -177,6 +177,10 @@ async function runGradle(
       env: {
         ...buildEnv(),
         GRADLE_USER_HOME: process.env.GRADLE_USER_HOME ?? join(process.env.HOME ?? '/tmp', '.gradle'),
+        // Cap the Gradle JVM heap to prevent OOM kills on low-memory servers
+        // (e.g. a 4 GB host). 512 m is sufficient for a standard TWA build.
+        // The env var is read by the Gradle wrapper before it launches the JVM.
+        GRADLE_OPTS: process.env.GRADLE_OPTS ?? '-Xmx512m -Xms128m',
       },
       reject: false, // We handle exit code ourselves
     }
