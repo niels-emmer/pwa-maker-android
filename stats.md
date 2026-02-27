@@ -9,6 +9,7 @@
 | 1 | 2026-02-26 | 6 | 8 | +4 459 | Initial build — empty repo to full working app |
 | 2 | 2026-02-26 | 1 | 2 | +5 | Fix `ConsoleLog` / `Parameters<>` Docker backend errors; update builder test mock |
 | 3 | 2026-02-26 | 4 | 2 | +76 | Port conflict resolution; first successful production deploy at pwa.macjuu.com |
+| 4 | 2026-02-27 | 3 | 4 | +131 | Debug & fix "Lost connection" / unhealthy-frontend; first successful APK build confirmed |
 
 ---
 
@@ -16,13 +17,13 @@
 
 | Metric | Value |
 |---|---|
-| **Total prompts** | 11 |
-| **Total debug sessions** | 12 |
-| **Total lines of code** | 4 540 |
-| **Tracked files** | 57 |
+| **Total prompts** | 14 |
+| **Total debug sessions** | 16 |
+| **Total lines of code** | 5 001 |
+| **Tracked files** | 58 |
 | **Tests** | 83 (46 backend + 37 frontend) |
-| **Commits** | 8 |
-| **Session wall-clock time** | ~35 min cumulative |
+| **Commits** | 10 |
+| **Session wall-clock time** | ~50 min cumulative |
 | **Production URL** | https://pwa.macjuu.com |
 
 ---
@@ -43,6 +44,10 @@
 | 10 | Docker backend build: `Parameters<typeof TwaManifest>` type error | TwaManifest constructor is overloaded, not assignable to `(...args: any) => any` | Cast manifest data `as any`; updated test mock to export `ConsoleLog` |
 | 11 | `docker-compose up` failed: port 80 in use | VPS already had a service on port 80 | Changed compose port to `${HOST_PORT:-8088}:80`; document in `.env.example` |
 | 12 | Port 8088 default also initially chosen as 8080 — also in use | VPS had ports 8080–8086 all occupied by other Docker services | Scanned with `ss -tlnp`; picked 8088 as first free port in that range |
+| 13 | "Lost connection to build server" immediately on build | nginx cached backend IP at startup; backend OOM-killed by Gradle → IP changed on restart → nginx returned 502 forever | Added `resolver 127.0.0.11 valid=30s` + variable proxy_pass so nginx re-resolves dynamically |
+| 14 | Frontend `unhealthy` after backend restart | Same nginx DNS-caching issue; `/api/health` proxy returned 502 → healthcheck failed | Same fix as #13 |
+| 15 | SSE stream silently dropped during long Gradle run | nginx / upstream load-balancer closed idle connection | Added `: heartbeat` SSE comment every 15 s to keep the stream alive |
+| 16 | Gradle OOM on 4 GB Ubuntu host (Intel MacBook Air 2015) | Unconstrained JVM heap exhausted host RAM; OOM-killer terminated Node.js process | `GRADLE_OPTS=-Xmx512m -Xms128m` caps heap; sufficient for a TWA release build |
 
 ---
 

@@ -41,11 +41,12 @@ Built with the same stack as a typical vibecoded PWA (React + Vite frontend, Exp
 - Paste any HTTPS PWA URL → manifest fields auto-filled
 - Configurable: app name, short name, package ID, theme/background colour, display mode, orientation, icon
 - Server-side APK build via [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) + Android SDK 36
-- Live build log streamed via SSE while you wait
+- Live build log streamed via SSE while you wait (with keep-alive heartbeat)
 - Download a signed APK directly in browser
 - Dark theme, mobile-first UI
 - Rate limiting, input validation, non-root container, no shell injection
 - Docker Compose — one command deploy
+- Production-hardened: nginx dynamic DNS, OOM-safe Gradle JVM cap, request logging
 
 ---
 
@@ -81,6 +82,8 @@ docker compose up -d --build
 ```
 
 > **First build takes 15–30 minutes** — the backend image installs JDK 17 + Android SDK (~1.5 GB). Subsequent builds use Docker layer cache and are fast.
+
+> **Low-memory host?** The default Gradle JVM heap is capped at 512 MB, which is sufficient for a TWA build and leaves headroom on 4 GB machines. Override with `GRADLE_OPTS=-Xmx768m` in `.env` if you have more RAM to spare.
 
 ### 4. Point your reverse proxy at the app port
 
@@ -123,6 +126,7 @@ All configuration is via environment variables in `.env`:
 | `ANDROID_HOME` | `/opt/android-sdk` | Android SDK path (set in Docker) |
 | `JAVA_HOME` | `/usr/lib/jvm/java-17-openjdk-amd64` | JDK path (set in Docker) |
 | `GRADLE_USER_HOME` | `/home/appuser/.gradle` | Gradle cache (mounted as volume) |
+| `GRADLE_OPTS` | `-Xmx512m -Xms128m` | Gradle JVM heap limits (safe for 4 GB hosts) |
 | `MAX_CONCURRENT_BUILDS` | `3` | Max simultaneous APK builds |
 | `BUILD_RATE_LIMIT_PER_HOUR` | `10` | Max builds per IP per hour |
 | `BUILD_TTL_HOURS` | `1` | Hours to keep built APK available |
