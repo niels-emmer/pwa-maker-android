@@ -11,6 +11,7 @@
 | 3 | 2026-02-26 | 4 | 2 | +76 | Port conflict resolution; first successful production deploy at pwa.macjuu.com |
 | 4 | 2026-02-27 | 3 | 4 | +131 | Debug & fix "Lost connection" / unhealthy-frontend; first successful APK build confirmed |
 | 5 | 2026-02-27 | 7 | 4 | +345 | Bot prevention: HMAC build token (backend) + honeypot field (frontend); nginx proxy_pass regression fix |
+| 6 | 2026-02-27 | 3 | 0 | +52 | Dependabot fixes: npm overrides for tar@7.5.8 (4×HIGH) and esbuild@0.25.0 (2×MEDIUM) |
 
 ---
 
@@ -18,13 +19,13 @@
 
 | Metric | Value |
 |---|---|
-| **Total prompts** | 21 |
+| **Total prompts** | 24 |
 | **Total debug sessions** | 20 |
-| **Total lines of code** | 5 346 |
+| **Total lines of code** | 5 398 |
 | **Tracked files** | 60 |
 | **Tests** | 130 (89 backend + 41 frontend) |
-| **Commits** | 24 |
-| **Session wall-clock time** | ~110 min cumulative |
+| **Commits** | 26 |
+| **Session wall-clock time** | ~120 min cumulative |
 | **Production URL** | https://pwa.macjuu.com |
 
 ---
