@@ -111,14 +111,22 @@ export function useBuild() {
 
     es.onerror = () => {
       es.close();
-      setState((s) => {
-        if (s.phase === 'complete' || s.phase === 'error') return s;
-        return {
-          ...s,
-          phase: 'error',
-          errorMessage: 'Lost connection to build server',
-        };
-      });
+      // Defer by one microtask-tick so that any onmessage events already in the
+      // browser's event queue (e.g. the final "complete" event that arrived in
+      // the same TCP segment as the connection-close) are processed first.
+      // Without this, onerror can fire before React has applied the 'complete'
+      // state update, and "Lost connection" would incorrectly overwrite the
+      // real terminal state.
+      setTimeout(() => {
+        setState((s) => {
+          if (s.phase === 'complete' || s.phase === 'error') return s;
+          return {
+            ...s,
+            phase: 'error',
+            errorMessage: 'Lost connection to build server',
+          };
+        });
+      }, 0);
     };
   }, []);
 

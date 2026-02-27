@@ -13,6 +13,7 @@
 | 5 | 2026-02-27 | 7 | 4 | +345 | Bot prevention: HMAC build token (backend) + honeypot field (frontend); nginx proxy_pass regression fix |
 | 6 | 2026-02-27 | 3 | 0 | +52 | Dependabot fixes: npm overrides for tar@7.5.8 (4×HIGH) and esbuild@0.25.0 (2×MEDIUM) |
 | 7 | 2026-02-27 | 4 | 1 | +245 | SVG icon conversion (resvg-js + temp HTTP server); manifest 500→422 error handling; PNG preferred over SVG in icon selection |
+| 8 | 2026-02-27 | 1 | 0 | +17 | Fix SSE progress streaming: `res.flush()` after each `res.write()` (gzip buffer); `setTimeout(0)` in `onerror` (race condition) |
 
 ---
 
@@ -20,13 +21,13 @@
 
 | Metric | Value |
 |---|---|
-| **Total prompts** | 28 |
+| **Total prompts** | 29 |
 | **Total debug sessions** | 21 |
-| **Total lines of code** | 5 643 |
+| **Total lines of code** | 5 660 |
 | **Tracked files** | 62 |
-| **Tests** | 141 (100 backend + 41 frontend) |
-| **Commits** | 26 |
-| **Session wall-clock time** | ~140 min cumulative |
+| **Tests** | 143 (100 backend + 43 frontend) |
+| **Commits** | 27 |
+| **Session wall-clock time** | ~150 min cumulative |
 | **Production URL** | https://pwa.macjuu.com |
 
 ---
@@ -95,6 +96,19 @@
 | Dockerfile + docker-compose | ~90 |
 | CSS | ~61 |
 | **Total** | **5 643** |
+
+---
+
+## LOC breakdown (session 8, cumulative)
+
+| Category | Lines |
+|---|---|
+| TypeScript / TSX (source + tests) | ~3 867 |
+| Markdown (README, SECURITY, docs/memory) | ~843 |
+| Config (JSON, HTML, nginx.conf, postcss) | ~225 |
+| Dockerfile + docker-compose | ~90 |
+| CSS | ~61 |
+| **Total** | **5 660** |
 
 ---
 
