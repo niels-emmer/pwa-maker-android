@@ -39,5 +39,9 @@
     "tsx": "^4.16.2",
     "typescript": "^5.5.3",
     "vitest": "^2.0.3"
+  },
+  "overrides": {
+    "tar": "7.5.8",
+    "esbuild": "0.25.0"
   }
 }
